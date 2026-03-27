@@ -1,0 +1,84 @@
+services:
+    db:
+        image: postgres:latest
+        environment:
+            POSTGRES_USER: admin
+            POSTGRES_DB: reviewsdb
+            POSTGRES_PASSWORD: adminpassword
+        volumes:
+            - db_data:/var/lib/postgresql/18/data
+        ports:
+            - "5432:5432"
+        networks:
+            - postgres_network
+        healthcheck:
+            test: ["CMD-SHELL", "pg_isready -U admin -d reviewsdb -h localhost"]
+            interval: 10s
+            timeout: 5s
+            retries: 5
+
+    nlp:
+        command: "python -m uvicorn main:app --host 0.0.0.0 --port 8001 --reload"
+        build: ./nlp
+        volumes:
+            - ./nlp:/app
+        ports:
+            - "8001:8001"
+        networks:
+            - postgres_network
+        depends_on:
+            db:
+                condition: service_healthy
+        healthcheck:
+            test: ["CMD-SHELL", "python -c \"import urllib.request; urllib.request.urlopen('http://localhost:8001/docs')\""]
+            interval: 10s
+            timeout: 5s
+            retries: 5
+
+    backend:
+        command: "python -m uvicorn main:app --host 0.0.0.0 --port 8000 --reload"
+        build: ./api
+        volumes:
+            - ./api:/app
+        ports:
+            - "8000:8000"
+        networks:
+            - postgres_network
+        depends_on:
+            nlp:
+                condition: service_healthy
+        healthcheck:
+            test: ["CMD-SHELL", "python -c \"import urllib.request; urllib.request.urlopen('http://localhost:8000/docs')\""]
+            interval: 10s
+            timeout: 5s
+            retries: 5
+
+    frontend:
+        command: "npm run dev --verbose -- --host 0.0.0.0 --port 5173"
+        build: ./ui
+        volumes:
+            - ./ui/src:/app/src
+        ports:
+            - "5173:5173"
+        networks:
+            - postgres_network
+        depends_on:
+            backend:
+                condition: service_healthy
+            nlp:
+                condition: service_healthy
+        environment:
+            - CHOKIDAR_USEPOLLING=true
+        healthcheck:
+            test: ["CMD-SHELL", "node -e \"fetch('http://localhost:5173').then(r => process.exit(r.ok ? 0 : 1))\""]
+            interval: 10s
+            timeout: 5s
+            retries: 5
+
+
+volumes:
+    db_data:
+
+networks:
+    postgres_network:
+        driver: bridge
