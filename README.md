@@ -2,7 +2,7 @@
 
 Analyze Steam reviews to find out specific pain points users have with games
 
-# Team
+## Team
 
 - Punit Turlapati
 - Max Locke
