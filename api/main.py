@@ -12,6 +12,20 @@ def health_check():
     """Just ping the backend to make sure it's working"""
     return {"status": "Backend is alive and kicking!"}
 
+def flatten_dict(d: dict, parent_key: str = "", sep: str = ".") -> dict:
+    """Flattens nested dicts"""
+    items = {}
+
+    for k, v in d.items():
+        new_key = f"{parent_key}{sep}{k}" if parent_key else k
+
+        if isinstance(v, dict):
+            items.update(flatten_dict(v, new_key, sep=sep))
+        else:
+            items[new_key] = v
+
+    return items
+
 def fetch_steam_reviews(
     app_id: int, 
     limit: Optional[int] = Query(100, description="Max reviews to fetch. Leave empty/null for ALL reviews.")
@@ -72,39 +86,29 @@ def fetch_steam_reviews(
 
 @app.get("/reviews/{app_id}")
 def get_steam_reviews_csv(
-        app_id: int,
-        limit: Optional[int] = Query(100, description="Max reviews to fetch.")
+    app_id: int,
+    limit: Optional[int] = Query(100)
 ):
-    """(Wrapper for FastAPI) Get Steam reviews and pack into a downloadable CSV"""
     reviews = fetch_steam_reviews(app_id, limit)
-    
-    # Create an in-memory string buffer to hold the CSV data
+
     output = io.StringIO()
-    writer = csv.writer(output)
-    
-    # Write the column headers
-    writer.writerow([
-        "recommendationid", 
-        "steamid", 
-        "playtime_forever_minutes", 
-        "voted_up", 
-        "votes_up", 
-        "review_text"
-    ])
-    
-    # Write the data for each review
+
+    # Flatten everything
+    flat_rows = []
     for r in reviews:
-        author = r.get("author", {})
-        writer.writerow([
-            r.get("recommendationid"),
-            author.get("steamid"),
-            author.get("playtime_forever"),
-            r.get("voted_up"),
-            r.get("votes_up"),
-            r.get("review")
-        ])
-        
-    # Return the data as a downloadable file
+        author = r.pop("author", {})
+        r["author"] = author
+        flat_rows.append(flatten_dict(r))
+
+    # Generate columns
+    fieldnames = sorted({key for row in flat_rows for key in row.keys()})
+
+    writer = csv.DictWriter(output, fieldnames=fieldnames)
+    writer.writeheader()
+
+    for row in flat_rows:
+        writer.writerow(row)
+
     return Response(
         content=output.getvalue(),
         media_type="text/csv",
@@ -118,29 +122,20 @@ def strip_review_text(review: str) -> str:
     return review.replace("\r", " ").replace("\n", " ").strip()
 
 if __name__ == "__main__":
-    # Test the Steam API stuff
-    game_id = 1353300
-    reviews = fetch_steam_reviews(game_id, None)
-    with open(f"{game_id}_reviews.csv", "w", encoding="utf-8", newline="") as f:
-        writer = csv.writer(f)
-        # Headers
-        writer.writerow([
-            "recommendationid", 
-            "steamid", 
-            "playtime_forever_minutes", 
-            "voted_up", 
-            "votes_up", 
-            "review_text"
-        ])
+    game_id = 1091500
+    reviews = fetch_steam_reviews(game_id, 1000)
 
-        # Reviews
-        for r in reviews:
-            author = r.get("author", {})
-            writer.writerow([
-                r.get("recommendationid"),
-                author.get("steamid"),
-                author.get("playtime_forever"),
-                r.get("voted_up"),
-                r.get("votes_up"),
-                strip_review_text(r.get("review"))
-            ])
+    # flatten
+    flat_rows = []
+    for r in reviews:
+        author = r.pop("author", {})
+        r["author"] = author
+        flat_rows.append(flatten_dict(r))
+
+    # generate full schema dynamically
+    fieldnames = sorted({k for row in flat_rows for k in row.keys()})
+
+    with open(f"{game_id}_reviews.csv", "w", encoding="utf-8", newline="") as f:
+        writer = csv.DictWriter(f, fieldnames=fieldnames)
+        writer.writeheader()
+        writer.writerows(flat_rows)
