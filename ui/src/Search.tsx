@@ -1,6 +1,7 @@
 import { useState } from "react";
 import SearchIcon from "./assets/icons/search.svg?react";
 import type { GameSearchResult } from "./App";
+import GameDetails from "./GameDetails";
 import Results from "./Results";
 
 type SearchResponse = {
@@ -16,6 +17,7 @@ export default function Search() {
     const [message, setMessage] = useState("");
     const [results, setResults] = useState<GameSearchResult[]>([]);
     const [hasSearched, setHasSearched] = useState(false);
+    const [selectedGame, setSelectedGame] = useState<GameSearchResult | null>(null);
 
     const runSearch = async () => {
         const trimmed = query.trim();
@@ -60,6 +62,10 @@ export default function Search() {
         }
     };
 
+    if (selectedGame) {
+        return <GameDetails game={selectedGame} onBack={() => setSelectedGame(null)} />;
+    }
+
     return (
         <div className="search">
             <div className="search-content">
@@ -92,7 +98,7 @@ export default function Search() {
                 </div>
                 {message && <p>{message}</p>}
 
-                {hasSearched ? <Results results={results} /> : null}
+                {hasSearched ? <Results results={results} onSelect={setSelectedGame} /> : null}
             </div>
         </div>
     );

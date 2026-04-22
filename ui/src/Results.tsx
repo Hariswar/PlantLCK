@@ -2,9 +2,10 @@ import type { GameSearchResult } from "./App";
 
 type ResultsProps = {
     results: GameSearchResult[];
+    onSelect: (game: GameSearchResult) => void;
 };
 
-export default function Results({ results }: ResultsProps) {
+export default function Results({ results, onSelect }: ResultsProps) {
     return (
         <div className="results">
             {results.length === 0 ? (
@@ -12,13 +13,18 @@ export default function Results({ results }: ResultsProps) {
             ) : (
                 <div className="results-list">
                     {results.map((game) => (
-                        <article key={game.appid} className="result-card">
+                        <button
+                            key={game.appid}
+                            type="button"
+                            className="result-card result-card-button"
+                            onClick={() => onSelect(game)}
+                        >
                             {game.image ? <img src={game.image} alt={game.name} className="result-image" /> : null}
                             <div>
                                 <p>{game.name}</p>
                                 <p>App ID: {game.appid}</p>
                             </div>
-                        </article>
+                        </button>
                     ))}
                 </div>
             )}
