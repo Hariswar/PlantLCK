@@ -6,7 +6,7 @@ cyberpunk_2077ID = 1091500
 limit_of_the_game_reviews = 1000 #So, I just set the limit to 1000 for the reviews but we can change it to how many review wen want to get. 
 
 # Included a function for downloading reviews from the backend API
-def steam_reviews_download():
+def downloading_gameReviews():
   url_link = f"{url}/reviews/{cyberpunk_2077ID}" + (f"?limit={limit_of_the_game_reviews}")
 
   output = requests.get(url_link)
