@@ -1,0 +1,19 @@
+# Core sentiment model stack
+transformers>=4.40.0
+torch>=2.2.0
+sentencepiece>=0.2.0
+protobuf>=4.25.0
+accelerate>=0.30.0
+
+# Preprocessing and matching
+spacy>=3.7.0
+langdetect>=1.0.9
+
+# Topic discovery
+bertopic>=0.16.0
+sentence-transformers>=2.7.0
+umap-learn>=0.5.5
+hdbscan>=0.8.33
+
+# After installing the above, also run:
+#   python -m spacy download en_core_web_sm
