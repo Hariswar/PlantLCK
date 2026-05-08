@@ -30,7 +30,11 @@ services:
             db:
                 condition: service_healthy
         healthcheck:
-            test: ["CMD-SHELL", "python -c \"import urllib.request; urllib.request.urlopen('http://localhost:8001/docs')\""]
+            test:
+                [
+                    "CMD-SHELL",
+                    'python -c "import urllib.request; urllib.request.urlopen(''http://localhost:8001/docs'')"',
+                ]
             interval: 10s
             timeout: 5s
             retries: 5
@@ -48,7 +52,11 @@ services:
             nlp:
                 condition: service_healthy
         healthcheck:
-            test: ["CMD-SHELL", "python -c \"import urllib.request; urllib.request.urlopen('http://localhost:8000/docs')\""]
+            test:
+                [
+                    "CMD-SHELL",
+                    'python -c "import urllib.request; urllib.request.urlopen(''http://localhost:8000/docs'')"',
+                ]
             interval: 10s
             timeout: 5s
             retries: 5
@@ -70,11 +78,10 @@ services:
         environment:
             - CHOKIDAR_USEPOLLING=true
         healthcheck:
-            test: ["CMD-SHELL", "node -e \"fetch('http://localhost:5173').then(r => process.exit(r.ok ? 0 : 1))\""]
+            test: ["CMD-SHELL", 'node -e "fetch(''http://localhost:5173'').then(r => process.exit(r.ok ? 0 : 1))"']
             interval: 10s
             timeout: 5s
             retries: 5
-
 
 volumes:
     db_data:

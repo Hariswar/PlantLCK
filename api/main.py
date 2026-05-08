@@ -12,6 +12,7 @@ from fastapi.middleware.cors import CORSMiddleware
 from pydantic import BaseModel, Field
 from urllib.parse import quote_plus
 
+
 app = FastAPI(title="PlantLck Backend API")
 
 app.add_middleware(
