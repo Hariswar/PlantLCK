@@ -12,18 +12,26 @@ report is uniform.
 Design notes:
     - The aspect string passed to DeBERTa for each cluster is the top
       keyword from BERTopic's c-TF-IDF representation. Single keywords
-      work better than phrases because DeBERTa was trained on aspect
-      terms, not topic descriptions.
+      and short bigrams both work, since DeBERTa-v3-ABSA was trained
+      on multi-word aspects (for example "battery life", "screen quality").
     - The cluster's full keyword list is preserved separately so the
       dashboard can render a richer label than the single keyword.
     - HDBSCAN's noise cluster (-1) is dropped.
     - MIN_TOPIC_SIZE in the config controls how aggressively small
       meme clusters are filtered out.
+    - A custom CountVectorizer with English stopwords is passed to
+      BERTopic so c-TF-IDF labels do not collapse to common words
+      such as "the", "a", or "is". Without this, BERTopic's default
+      vectorizer counts every token, and stopwords often win the
+      label score because they appear at slightly different rates
+      across clusters.
 """
 
 from __future__ import annotations
 
 from typing import Any
+
+from sklearn.feature_extraction.text import CountVectorizer
 
 from absa_config import (
     EMBEDDING_MODEL,
@@ -72,9 +80,22 @@ def discover_topics(
     print(f"Running BERTopic on {len(residual)} residual sentences...")
     texts = [r["text"] for r in residual]
 
+    # Embedding model used for clustering.
     embedder = SentenceTransformer(EMBEDDING_MODEL)
+
+    # Vectorizer used by c-TF-IDF for topic labeling. The stop_words
+    # argument is the critical fix that prevents topics like "the"
+    # from being selected as cluster labels. The ngram_range setting
+    # allows useful bigrams such as "frame rate" or "art style" to
+    # surface as labels, which DeBERTa accepts as aspect terms.
+    vectorizer_model = CountVectorizer(
+        stop_words="english",
+        ngram_range=(1, 2),
+    )
+
     topic_model = BERTopic(
         embedding_model=embedder,
+        vectorizer_model=vectorizer_model,
         min_topic_size=MIN_TOPIC_SIZE,
         verbose=False,
     )
