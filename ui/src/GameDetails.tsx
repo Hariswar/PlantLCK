@@ -432,25 +432,7 @@ export default function GameDetails({ game, onBack }: { game: GameSearchResult; 
                                         </button>
                                     </div>
 
-                                    <div className="reviews-list">
-                                        {reviews.map((review, index) => (
-                                            <article
-                                                key={`${review.recommendationid ?? index}`}
-                                                className="review-card"
-                                            >
-                                                <p className="review-text">
-                                                    {review.review_text || "No review text available."}
-                                                </p>
-                                                <div className="review-meta review-meta-data">
-                                                    <span>{review.voted_up ? "Recommended" : "Not recommended"}</span>
-                                                    <span>Playtime: {review.playtime_forever_minutes ?? 0} min</span>
-                                                    <span>Helpful votes: {review.votes_up ?? 0}</span>
-                                                    <span>Language: {review.language ?? "unknown"}</span>
-                                                    <span>{formatReviewDate(review.created_at)}</span>
-                                                </div>
-                                            </article>
-                                        ))}
-                                    </div>
+                                    <p>Reviews are already loaded — view them in the Reviews tab.</p>
                                 </>
                             ) : (
                                 <>
