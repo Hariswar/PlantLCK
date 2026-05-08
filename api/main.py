@@ -46,14 +46,20 @@ review_jobs_lock = threading.Lock()
 def _utc_start_of_day(value: Optional[str]) -> Optional[datetime]:
     if not value:
         return None
-    parsed_date = date.fromisoformat(value)
+    try:
+        parsed_date = date.fromisoformat(value)
+    except ValueError as exc:
+        raise HTTPException(status_code=400, detail=f"Invalid date_from value: {value}") from exc
     return datetime(parsed_date.year, parsed_date.month, parsed_date.day, tzinfo=timezone.utc)
 
 
 def _utc_end_of_day(value: Optional[str]) -> Optional[datetime]:
     if not value:
         return None
-    parsed_date = date.fromisoformat(value)
+    try:
+        parsed_date = date.fromisoformat(value)
+    except ValueError as exc:
+        raise HTTPException(status_code=400, detail=f"Invalid date_to value: {value}") from exc
     return datetime(parsed_date.year, parsed_date.month, parsed_date.day, 23, 59, 59, tzinfo=timezone.utc)
 
 
@@ -104,14 +110,38 @@ def _matches_review_filters(
 
 
 def _build_review_request_params(batch_size: int, cursor: str, language: str, purchase_type: str) -> dict[str, Any]:
+    steam_purchase_type = {
+        "all": "all",
+        "steam": "steam",
+        "non_steam": "non_steam_purchase",
+    }.get(purchase_type, "all")
+
     params: dict[str, Any] = {
         "filter": "recent",
-        "purchase_type": purchase_type,
+        "purchase_type": steam_purchase_type,
         "num_per_page": batch_size,
         "cursor": cursor,
     }
     if language != "all":
         params["language"] = language
+    return params
+
+
+def _build_review_request_params_for_date_range(
+    batch_size: int,
+    cursor: str,
+    language: str,
+    purchase_type: str,
+    date_from: Optional[str],
+) -> dict[str, Any]:
+    params = _build_review_request_params(batch_size, cursor, language, purchase_type)
+
+    if date_from:
+        parsed_from = date.fromisoformat(date_from)
+        day_range = max(1, (datetime.now(timezone.utc).date() - parsed_from).days + 1)
+        params["filter"] = "all"
+        params["day_range"] = min(day_range, 365)
+
     return params
 
 
@@ -132,14 +162,10 @@ def _collect_reviews_with_progress(
     max_created_at = _utc_end_of_day(date_to)
 
     while True:
-        remaining = limit - fetched_reviews
-        if remaining <= 0:
-            break
-
-        batch_size = min(100, remaining)
+        batch_size = 100
         response = requests.get(
             url,
-            params=_build_review_request_params(batch_size, cursor, language, purchase_type),
+            params=_build_review_request_params_for_date_range(batch_size, cursor, language, purchase_type, date_from),
             timeout=20,
         )
         if response.status_code != 200:
@@ -157,6 +183,11 @@ def _collect_reviews_with_progress(
             if _matches_review_filters(normalized_review, language, purchase_type, min_created_at, max_created_at):
                 all_reviews.append(normalized_review)
 
+                if len(all_reviews) >= limit:
+                    if progress_callback:
+                        progress_callback(fetched_reviews, len(all_reviews), limit)
+                    return all_reviews[:limit]
+
         if progress_callback:
             progress_callback(fetched_reviews, len(all_reviews), limit)
 
@@ -167,7 +198,7 @@ def _collect_reviews_with_progress(
 
         time.sleep(0.5)
 
-    return all_reviews
+    return all_reviews[:limit]
 
 
 def _update_review_job(job_id: str, **changes: Any) -> None:
@@ -195,7 +226,7 @@ def _run_review_job(job_id: str) -> None:
                 if current_job is None:
                     return
 
-                progress_percent = 100 if limit <= 0 else min(100, (fetched_count / limit) * 100)
+                progress_percent = 100 if limit <= 0 else min(100, (matched_count / limit) * 100)
                 current_job.update(
                     {
                         "fetched_count": fetched_count,

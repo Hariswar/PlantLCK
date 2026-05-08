@@ -556,7 +556,13 @@ export default function GameDetails({ game, onBack }: { game: GameSearchResult; 
                     {tab === "reviews" ? (
                         <div className="reviews-panel">
                             {reviews.length === 0 ? (
-                                <p>Fetched reviews will appear here after the Steam download completes.</p>
+                                <p>
+                                    {hasCompletedSearch && (filters.dateFrom || filters.dateTo)
+                                        ? "No reviews matched the selected date range. Try widening the date filter or increasing the review limit."
+                                        : hasCompletedSearch
+                                          ? "No reviews matched the selected filters. Try adjusting the filters and fetching again."
+                                          : "Fetched reviews will appear here after the Steam download completes."}
+                                </p>
                             ) : (
                                 <>
                                     <div className="search-locked-actions">
